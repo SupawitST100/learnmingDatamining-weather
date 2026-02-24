@@ -8,15 +8,15 @@ export default function Footer() {
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-6">
           {/* Logo & Copyright */}
-          {/* <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <Cloud className="w-5 h-5 text-primary" />
             <span className="text-sm text-muted-foreground">
               © {currentYear} SkyCast. All rights reserved.
             </span>
-          </div> */}
+          </div>
 
           {/* Links */}
-          {/* <div className="flex items-center gap-6 text-sm text-muted-foreground">
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <a
               href="#"
               className="hover:text-foreground transition-colors"
@@ -35,13 +35,13 @@ export default function Footer() {
             >
               Contact
             </a>
-          </div> */}
+          </div>
 
           {/* Credit */}
-          {/* <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
             Powered by{' '}
             <span className="text-primary font-medium">Weather API</span>
-          </div> */}
+          </div>
         </div>
       </div>
     </footer>

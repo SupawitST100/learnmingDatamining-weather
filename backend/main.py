@@ -14,10 +14,14 @@ import json
 
 app = FastAPI(title="Weather Prediction API")
 
-# Allow frontend to call this API
+# Allow frontend to call this API (Vercel + local dev)
+import os
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )

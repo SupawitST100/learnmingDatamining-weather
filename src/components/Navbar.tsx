@@ -14,8 +14,8 @@ export default function Navbar() {
   const links = [
     { to: '/',           label: 'หน้าหลัก',  icon: CloudRain },
     { to: '/prediction', label: 'ทำนาย',      icon: Brain },
-    // { to: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-    // { to: '/about',      label: 'เกี่ยวกับ',  icon: Info },
+    { to: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
+    { to: '/about',      label: 'เกี่ยวกับ',  icon: Info },
   ]
 
   const isActive = (path: string) => location.pathname === path
