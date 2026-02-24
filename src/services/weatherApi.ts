@@ -8,6 +8,7 @@ export interface PredictRequest {
   day_of_year: number
   precipitation: number
   wind: number
+  humidity?: number
 }
 
 export interface PredictResponse {
@@ -84,4 +85,20 @@ export function weatherLabel(w: string): string {
     snow: 'หิมะตก',
   }
   return map[w] ?? w
+}
+
+export interface ModelMetrics {
+  cv_accuracy_mean: number
+  cv_accuracy_std: number
+  cv_scores: number[]
+  classes: string[]
+  n_estimators: number
+  max_depth: number
+  min_samples_leaf: number
+}
+
+export async function fetchMetrics(): Promise<ModelMetrics> {
+  const res = await fetch(`${API_BASE}/metrics`)
+  if (!res.ok) throw new Error('Metrics fetch failed')
+  return res.json()
 }

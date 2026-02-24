@@ -70,9 +70,12 @@ interface OptionalTempProps {
   color: string
   textColor: string
   bgColor: string
+  min?: number
+  max?: number
+  emoji?: string
 }
 
-function OptionalTempField({ label, value, onChange, color, textColor, bgColor }: OptionalTempProps) {
+function OptionalTempField({ label, value, onChange, color, textColor, bgColor, min = -10, max = 45, emoji }: OptionalTempProps) {
   const enabled = value !== null
   return (
     <div className={`rounded-2xl p-4 border-2 transition-colors ${enabled ? `${bgColor} border-current ${textColor}` : 'border-border bg-secondary/30'}`}>
@@ -106,31 +109,28 @@ function OptionalTempField({ label, value, onChange, color, textColor, bgColor }
       {enabled ? (
         <>
           <div className="flex items-center justify-between mb-2">
-            <span className={`text-3xl font-bold ${textColor}`}>{value}°C</span>
+            <span className={`text-3xl font-bold ${textColor}`}>{value}{min === 0 ? '%' : '°C'}</span>
           </div>
           <input
             type="range"
-            min={-10} max={45} step={0.5}
-            value={value ?? 25}
+            min={min} max={max} step={min === 0 ? 1 : 0.5}
+            value={value ?? (min === 0 ? 50 : 25)}
             onChange={e => onChange(Number(e.target.value))}
             className={`w-full ${color}`}
           />
           <div className="flex justify-between text-xs text-muted-foreground mt-1">
-            <span>-10°C</span>
-            <span>0°C</span>
-            <span>15°C</span>
-            <span>30°C</span>
-            <span>45°C</span>
+            <span>{min}{min === 0 ? '%' : '°C'}</span>
+            <span>{Math.round((min + max) / 2)}{min === 0 ? '%' : '°C'}</span>
+            <span>{max}{min === 0 ? '%' : '°C'}</span>
           </div>
-          {/* Detailed tick bar */}
           <div className="mt-2 relative h-2 bg-secondary/50 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${textColor === 'text-red-500' ? 'bg-red-400/60' : 'bg-blue-400/60'}`}
-              style={{ width: `${((value! + 10) / 55) * 100}%` }}
+              className={`h-full rounded-full transition-all ${textColor === 'text-red-500' ? 'bg-red-400/60' : textColor === 'text-blue-500' ? 'bg-blue-400/60' : 'bg-cyan-400/60'}`}
+              style={{ width: `${((value! - min) / (max - min)) * 100}%` }}
             />
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            {value! >= 35 ? '🔥 ร้อนมาก' : value! >= 25 ? '☀️ อุ่น' : value! >= 15 ? '🌤️ เย็นสบาย' : value! >= 5 ? '❄️ เย็น' : '🧊 หนาวจัด'}
+            {emoji || (value! >= 35 ? '🔥 ร้อนมาก' : value! >= 25 ? '☀️ อุ่น' : value! >= 15 ? '🌤️ เย็นสบาย' : value! >= 5 ? '❄️ เย็น' : '🧊 หนาวจัด')}
           </p>
         </>
       ) : (
@@ -147,6 +147,7 @@ export default function PredictionPage() {
   const [forecastDays, setForecastDays] = useState(7)
   const [tempMax, setTempMax] = useState<number | null>(null)
   const [tempMin, setTempMin] = useState<number | null>(null)
+  const [humidity, setHumidity] = useState<number | null>(null)
 
   const [result, setResult] = useState<PredictResponse | null>(null)
   const [range, setRange] = useState<DayForecast[]>([])
@@ -163,6 +164,7 @@ export default function PredictionPage() {
           day_of_year: getDayOfYear(month),
           precipitation,
           wind,
+          humidity: humidity ?? undefined,
         }),
         predictRange(month, forecastDays),
       ])
@@ -259,15 +261,15 @@ export default function PredictionPage() {
             </div>
           </div>
 
-          {/* Optional Temp Section */}
+          {/* Optional Temp + Humidity Section */}
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-3">
               <Thermometer className="w-4 h-4 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                อุณหภูมิ <span className="text-foreground font-medium">(ไม่บังคับ)</span> — ถ้ากรอกจะใช้แทนค่าที่ Model ทำนาย
+                ข้อมูลเพิ่มเติม <span className="text-foreground font-medium">(ไม่บังคับ)</span> — ถ้ากรอกจะช่วยให้ทำนายแม่นขึ้น
               </p>
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-3 gap-4">
               <OptionalTempField
                 label="🌡️ อุณหภูมิสูงสุด"
                 value={tempMax}
@@ -283,6 +285,17 @@ export default function PredictionPage() {
                 color="accent-blue-500"
                 textColor="text-blue-500"
                 bgColor="bg-blue-500/5"
+              />
+              <OptionalTempField
+                label="💧 ความชื้น (%)"
+                value={humidity}
+                onChange={setHumidity}
+                color="accent-cyan-500"
+                textColor="text-cyan-500"
+                bgColor="bg-cyan-500/5"
+                min={0}
+                max={100}
+                emoji={humidity !== null ? (humidity > 80 ? '🌫️ ชื้นมาก' : humidity > 60 ? '💧 ชื้น' : humidity > 40 ? '😊 สบาย' : '🏜️ แห้ง') : ''}
               />
             </div>
           </div>

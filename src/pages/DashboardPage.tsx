@@ -1,31 +1,19 @@
-// src/pages/DashboardPage.tsx  (replace existing)
+// src/pages/DashboardPage.tsx
 import { useEffect, useState } from 'react'
-import { BarChart3, TrendingUp, Cloud, Loader2 } from 'lucide-react'
-import { fetchStats, StatsResponse, weatherIcon, weatherLabel } from '../services/weatherApi'
+import { BarChart3, TrendingUp, Cloud, Loader2, Brain, CheckCircle } from 'lucide-react'
+import { fetchStats, fetchMetrics, StatsResponse, ModelMetrics, weatherIcon, weatherLabel } from '../services/weatherApi'
 
 const MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-function Bar({ value, max, color }: { value: number; max: number; color: string }) {
-  return (
-    <div className="flex-1 flex flex-col items-center gap-1">
-      <div className="w-full flex items-end justify-center" style={{ height: 80 }}>
-        <div
-          className={`w-full rounded-t-lg ${color} transition-all duration-700`}
-          style={{ height: `${(value / max) * 100}%`, minHeight: 4 }}
-        />
-      </div>
-    </div>
-  )
-}
-
 export default function DashboardPage() {
-  const [stats, setStats] = useState<StatsResponse | null>(null)
+  const [stats, setStats]     = useState<StatsResponse | null>(null)
+  const [metrics, setMetrics] = useState<ModelMetrics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState('')
+  const [error, setError]     = useState('')
 
   useEffect(() => {
-    fetchStats()
-      .then(setStats)
+    Promise.all([fetchStats(), fetchMetrics()])
+      .then(([s, m]) => { setStats(s); setMetrics(m) })
       .catch(() => setError('ไม่สามารถโหลดข้อมูลได้ — ตรวจสอบว่า backend กำลัง run อยู่'))
       .finally(() => setLoading(false))
   }, [])
@@ -37,12 +25,15 @@ export default function DashboardPage() {
   )
 
   if (error || !stats) return (
-    <div className="min-h-screen flex items-center justify-center text-red-500">{error || 'เกิดข้อผิดพลาด'}</div>
+    <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>
   )
 
-  const totalWeather = Object.values(stats.weather_counts).reduce((a,b) => a+b, 0)
+  const totalWeather = Object.values(stats.weather_counts).reduce((a, b) => a + b, 0)
   const maxTempMax   = Math.max(...Object.values(stats.monthly_avg_temp_max))
   const maxPrecip    = Math.max(...Object.values(stats.monthly_avg_precip))
+
+  const accuracyColor = (acc: number) =>
+    acc >= 80 ? 'text-green-500' : acc >= 65 ? 'text-yellow-500' : 'text-red-500'
 
   return (
     <div className="min-h-screen py-10 md:py-16">
@@ -55,6 +46,96 @@ export default function DashboardPage() {
           </p>
         </div>
 
+        {/* Model Metrics Card */}
+        {metrics && (
+          <div className="glass-card rounded-3xl p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-5 flex items-center gap-2">
+              <Brain className="w-5 h-5 text-primary" /> ประสิทธิภาพ ML Model
+            </h2>
+
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              {/* Accuracy */}
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <p className="text-sm text-muted-foreground mb-1">CV Accuracy (10-fold)</p>
+                <p className={`text-4xl font-bold ${accuracyColor(metrics.cv_accuracy_mean)}`}>
+                  {metrics.cv_accuracy_mean}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  ± {metrics.cv_accuracy_std}%
+                </p>
+              </div>
+
+              {/* Overfitting risk */}
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <p className="text-sm text-muted-foreground mb-1">ความเสี่ยง Overfitting</p>
+                <p className={`text-4xl font-bold ${
+                  metrics.cv_accuracy_std < 5 ? 'text-green-500'
+                  : metrics.cv_accuracy_std < 10 ? 'text-yellow-500'
+                  : 'text-red-500'
+                }`}>
+                  {metrics.cv_accuracy_std < 5 ? 'ต่ำ' : metrics.cv_accuracy_std < 10 ? 'กลาง' : 'สูง'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  std ={metrics.cv_accuracy_std}%
+                </p>
+              </div>
+
+              {/* Classes */}
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <p className="text-sm text-muted-foreground mb-1">Class ที่ทำนายได้</p>
+                <p className="text-4xl font-bold text-primary">{metrics.classes.length}/5</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {metrics.classes.join(', ')}
+                </p>
+              </div>
+            </div>
+
+            {/* CV scores bar chart */}
+            <div className="mb-5">
+              <p className="text-sm text-muted-foreground mb-3">Accuracy แต่ละ Fold (10-fold CV)</p>
+              <div className="flex items-end gap-2 h-20">
+                {metrics.cv_scores.map((score, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="w-full flex items-end justify-center" style={{ height: 64 }}>
+                      <div
+                        className={`w-full rounded-t-lg transition-all duration-700 ${
+                          score >= 80 ? 'bg-green-400/70' : score >= 65 ? 'bg-yellow-400/70' : 'bg-red-400/70'
+                        }`}
+                        style={{ height: `${(score / 100) * 100}%` }}
+                        title={`Fold ${i+1}: ${score}%`}
+                      />
+                    </div>
+                    <p className="text-[9px] text-muted-foreground">F{i+1}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Model parameters */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'จำนวน Trees', value: metrics.n_estimators },
+                { label: 'Max Depth', value: metrics.max_depth },
+                { label: 'Min Samples Leaf', value: metrics.min_samples_leaf },
+              ].map((p) => (
+                <div key={p.label} className="bg-secondary/40 rounded-xl p-3 text-center">
+                  <p className="text-xs text-muted-foreground">{p.label}</p>
+                  <p className="text-xl font-bold mt-1">{p.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Interpretation */}
+            <div className="mt-4 flex items-start gap-2 bg-primary/5 rounded-xl p-4">
+              <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                ใช้ <span className="text-foreground font-medium">Stratified 10-fold Cross-Validation</span> วัดความแม่นที่แท้จริง
+                — ค่า std ต่ำ หมายถึง model เสถียรและไม่ overfit ครับ
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Weather distribution */}
         <div className="glass-card rounded-3xl p-6 mb-6">
           <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
@@ -62,7 +143,7 @@ export default function DashboardPage() {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {Object.entries(stats.weather_counts)
-              .sort((a,b) => b[1] - a[1])
+              .sort((a, b) => b[1] - a[1])
               .map(([w, count]) => (
               <div key={w} className="glass-card rounded-2xl p-4 text-center hover:scale-105 transition-transform">
                 <span className="text-4xl">{weatherIcon(w)}</span>
@@ -82,7 +163,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Monthly temp chart */}
+        {/* Monthly charts */}
         <div className="grid md:grid-cols-2 gap-6 mb-6">
           <div className="glass-card rounded-3xl p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -95,16 +176,8 @@ export default function DashboardPage() {
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
                     <div className="w-full flex flex-col items-center" style={{ height: 80 }}>
-                      <div
-                        className="w-full rounded-t bg-red-400/70 transition-all duration-700"
-                        style={{ height: `${(tmax / maxTempMax) * 100}%` }}
-                        title={`สูงสุด: ${tmax}°C`}
-                      />
-                      <div
-                        className="w-full bg-blue-400/70"
-                        style={{ height: `${(tmin / maxTempMax) * 100}%` }}
-                        title={`ต่ำสุด: ${tmin}°C`}
-                      />
+                      <div className="w-full rounded-t bg-red-400/70" style={{ height: `${(tmax/maxTempMax)*100}%` }} title={`สูงสุด: ${tmax}°C`}/>
+                      <div className="w-full bg-blue-400/70" style={{ height: `${(tmin/maxTempMax)*100}%` }} title={`ต่ำสุด: ${tmin}°C`}/>
                     </div>
                     <p className="text-[9px] text-muted-foreground">{m}</p>
                   </div>
@@ -117,7 +190,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Monthly precipitation */}
           <div className="glass-card rounded-3xl p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-blue-500" /> ฝนเฉลี่ยรายเดือน (mm)
@@ -128,19 +200,12 @@ export default function DashboardPage() {
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
                     <div className="w-full flex items-end" style={{ height: 80 }}>
-                      <div
-                        className="w-full rounded-t bg-cyan-400/70 transition-all duration-700"
-                        style={{ height: `${(p / maxPrecip) * 100}%`, minHeight: 2 }}
-                        title={`${p} mm`}
-                      />
+                      <div className="w-full rounded-t bg-cyan-400/70" style={{ height: `${(p/maxPrecip)*100}%`, minHeight: 2 }} title={`${p} mm`}/>
                     </div>
                     <p className="text-[9px] text-muted-foreground">{m}</p>
                   </div>
                 )
               })}
-            </div>
-            <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-cyan-400/70 inline-block"/>ปริมาณน้ำฝน</span>
             </div>
           </div>
         </div>
@@ -163,9 +228,7 @@ export default function DashboardPage() {
                 {stats.recent_30.map((r, i) => (
                   <tr key={i} className="border-b border-border/50 hover:bg-secondary/30">
                     <td className="py-2 pr-4 text-muted-foreground">{r.date_str}</td>
-                    <td className="py-2 pr-4 text-center">
-                      {weatherIcon(r.weather)} {weatherLabel(r.weather)}
-                    </td>
+                    <td className="py-2 pr-4 text-center">{weatherIcon(r.weather)} {weatherLabel(r.weather)}</td>
                     <td className="py-2 pr-4 text-right text-red-400 font-medium">{r.temp_max}°C</td>
                     <td className="py-2 pr-4 text-right text-blue-400 font-medium">{r.temp_min}°C</td>
                     <td className="py-2 text-right text-cyan-400">{r.precipitation}</td>
