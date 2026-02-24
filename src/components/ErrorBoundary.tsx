@@ -7,7 +7,7 @@ const searilizeError = (error: any) => {
   return JSON.stringify(error, null, 2);
 };
 
-export class ErrorBoundary extends React.Component<
+export default class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error: any }
 > {
