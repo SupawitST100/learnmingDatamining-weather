@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import {
   CloudRain, Thermometer, Wind, Droplets,
-  Search, AlertCircle, Loader2, BarChart3, X
+  Search, AlertCircle, Loader2, BarChart3
 } from 'lucide-react'
 import {
   predictWeather, predictRange,
@@ -20,133 +20,11 @@ function getDayOfYear(month: number): number {
   return cumDays[month - 1] + 15
 }
 
-interface SliderFieldProps {
-  label: string
-  value: number
-  onChange: (v: number) => void
-  min: number
-  max: number
-  step: number
-  unit: string
-  minLabel: string
-  maxLabel: string
-  color?: string
-}
-
-function SliderField({ label, value, onChange, min, max, step, unit, minLabel, maxLabel, color = 'accent-primary' }: SliderFieldProps) {
-  const pct = ((value - min) / (max - min)) * 100
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-2">
-        <label className="text-sm text-muted-foreground">{label}</label>
-        <span className="font-semibold text-foreground tabular-nums">{value} {unit}</span>
-      </div>
-      <div className="relative">
-        <input
-          type="range" min={min} max={max} step={step}
-          value={value}
-          onChange={e => onChange(Number(e.target.value))}
-          className={`w-full ${color}`}
-        />
-        {/* Tick marks every 25% */}
-        <div className="flex justify-between mt-1">
-          <span className="text-xs text-muted-foreground">{minLabel}</span>
-          <span className="text-xs text-muted-foreground">{Math.round((min + max) / 2)} {unit}</span>
-          <span className="text-xs text-muted-foreground">{maxLabel}</span>
-        </div>
-        {/* Progress indicator */}
-        <div className="mt-1 h-1 bg-secondary rounded-full overflow-hidden">
-          <div className="h-full bg-primary/40 rounded-full transition-all" style={{ width: `${pct}%` }} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-interface OptionalTempProps {
-  label: string
-  value: number | null
-  onChange: (v: number | null) => void
-  color: string
-  textColor: string
-  bgColor: string
-}
-
-function OptionalTempField({ label, value, onChange, color, textColor, bgColor }: OptionalTempProps) {
-  const enabled = value !== null
-  return (
-    <div className={`rounded-2xl p-4 border-2 transition-colors ${enabled ? `${bgColor} border-current ${textColor}` : 'border-border bg-secondary/30'}`}>
-      <div className="flex items-center justify-between mb-3">
-        <label className={`text-sm font-medium ${enabled ? textColor : 'text-muted-foreground'}`}>
-          {label}
-        </label>
-        <div className="flex items-center gap-2">
-          {enabled && (
-            <button
-              onClick={() => onChange(null)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              title="ล้างค่า"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-          <button
-            onClick={() => onChange(enabled ? null : 25)}
-            className={`text-xs px-3 py-1 rounded-lg transition-colors font-medium ${
-              enabled
-                ? `${bgColor} ${textColor} border border-current`
-                : 'bg-secondary text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {enabled ? 'เปิดอยู่' : 'เพิ่มค่า'}
-          </button>
-        </div>
-      </div>
-
-      {enabled ? (
-        <>
-          <div className="flex items-center justify-between mb-2">
-            <span className={`text-3xl font-bold ${textColor}`}>{value}°C</span>
-          </div>
-          <input
-            type="range"
-            min={-10} max={45} step={0.5}
-            value={value ?? 25}
-            onChange={e => onChange(Number(e.target.value))}
-            className={`w-full ${color}`}
-          />
-          <div className="flex justify-between text-xs text-muted-foreground mt-1">
-            <span>-10°C</span>
-            <span>0°C</span>
-            <span>15°C</span>
-            <span>30°C</span>
-            <span>45°C</span>
-          </div>
-          {/* Detailed tick bar */}
-          <div className="mt-2 relative h-2 bg-secondary/50 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${textColor === 'text-red-500' ? 'bg-red-400/60' : 'bg-blue-400/60'}`}
-              style={{ width: `${((value! + 10) / 55) * 100}%` }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            {value! >= 35 ? '🔥 ร้อนมาก' : value! >= 25 ? '☀️ อุ่น' : value! >= 15 ? '🌤️ เย็นสบาย' : value! >= 5 ? '❄️ เย็น' : '🧊 หนาวจัด'}
-          </p>
-        </>
-      ) : (
-        <p className="text-xs text-muted-foreground">ไม่กรอกก็ได้ — Model จะทำนายให้เอง</p>
-      )}
-    </div>
-  )
-}
-
 export default function PredictionPage() {
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [wind, setWind] = useState(3.0)
   const [precipitation, setPrecipitation] = useState(0.0)
   const [forecastDays, setForecastDays] = useState(7)
-  const [tempMax, setTempMax] = useState<number | null>(null)
-  const [tempMin, setTempMin] = useState<number | null>(null)
 
   const [result, setResult] = useState<PredictResponse | null>(null)
   const [range, setRange] = useState<DayForecast[]>([])
@@ -166,15 +44,7 @@ export default function PredictionPage() {
         }),
         predictRange(month, forecastDays),
       ])
-
-      // ถ้าผู้ใช้กรอก temp ไว้ ให้ override ผลจาก model
-      const finalResult = {
-        ...single,
-        temp_max: tempMax !== null ? tempMax : single.temp_max,
-        temp_min: tempMin !== null ? tempMin : single.temp_min,
-      }
-
-      setResult(finalResult)
+      setResult(single)
       setRange(multi)
     } catch {
       setError('❌ ไม่สามารถเชื่อมต่อ API ได้ — ตรวจสอบว่า backend กำลัง run อยู่ที่ port 8000')
@@ -219,71 +89,52 @@ export default function PredictionPage() {
               </select>
             </div>
 
-            {/* Forecast days */}
-            <div>
-              <SliderField
-                label="จำนวนวันที่ต้องการพยากรณ์"
-                value={forecastDays}
-                onChange={setForecastDays}
-                min={1} max={14} step={1}
-                unit="วัน"
-                minLabel="1 วัน"
-                maxLabel="14 วัน"
-              />
-            </div>
-
             {/* Wind */}
             <div>
-              <SliderField
-                label="ความเร็วลม"
+              <label className="block text-sm text-muted-foreground mb-2">
+                ความเร็วลม: <span className="font-semibold text-foreground">{wind} m/s</span>
+              </label>
+              <input
+                type="range" min={0} max={15} step={0.5}
                 value={wind}
-                onChange={setWind}
-                min={0} max={20} step={0.1}
-                unit="m/s"
-                minLabel="0 m/s"
-                maxLabel="20 m/s"
+                onChange={e => setWind(Number(e.target.value))}
+                className="w-full accent-primary"
               />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>0 m/s</span><span>15 m/s</span>
+              </div>
             </div>
 
             {/* Precipitation */}
             <div>
-              <SliderField
-                label="ปริมาณน้ำฝน (ถ้ามี)"
+              <label className="block text-sm text-muted-foreground mb-2">
+                ปริมาณน้ำฝน (ถ้ามี): <span className="font-semibold text-foreground">{precipitation} mm</span>
+              </label>
+              <input
+                type="range" min={0} max={60} step={0.5}
                 value={precipitation}
-                onChange={setPrecipitation}
-                min={0} max={80} step={0.5}
-                unit="mm"
-                minLabel="0 mm"
-                maxLabel="80 mm"
+                onChange={e => setPrecipitation(Number(e.target.value))}
+                className="w-full accent-primary"
               />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>0 mm</span><span>60 mm</span>
+              </div>
             </div>
-          </div>
 
-          {/* Optional Temp Section */}
-          <div className="mt-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Thermometer className="w-4 h-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                อุณหภูมิ <span className="text-foreground font-medium">(ไม่บังคับ)</span> — ถ้ากรอกจะใช้แทนค่าที่ Model ทำนาย
-              </p>
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              <OptionalTempField
-                label="🌡️ อุณหภูมิสูงสุด"
-                value={tempMax}
-                onChange={setTempMax}
-                color="accent-red-500"
-                textColor="text-red-500"
-                bgColor="bg-red-500/5"
+            {/* Forecast days */}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-2">
+                จำนวนวันที่ต้องการพยากรณ์: <span className="font-semibold text-foreground">{forecastDays} วัน</span>
+              </label>
+              <input
+                type="range" min={1} max={14} step={1}
+                value={forecastDays}
+                onChange={e => setForecastDays(Number(e.target.value))}
+                className="w-full accent-primary"
               />
-              <OptionalTempField
-                label="🌡️ อุณหภูมิต่ำสุด"
-                value={tempMin}
-                onChange={setTempMin}
-                color="accent-blue-500"
-                textColor="text-blue-500"
-                bgColor="bg-blue-500/5"
-              />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>1 วัน</span><span>14 วัน</span>
+              </div>
             </div>
           </div>
 
@@ -309,6 +160,7 @@ export default function PredictionPage() {
         {/* Result */}
         {result && (
           <>
+            {/* Main prediction card */}
             <div className="glass-card rounded-3xl p-6 mb-6">
               <h2 className="text-lg font-semibold mb-6">📊 ผลการทำนาย — {MONTHS[month-1]}</h2>
 
@@ -327,9 +179,6 @@ export default function PredictionPage() {
                   </div>
                   <p className="text-sm text-muted-foreground">อุณหภูมิสูงสุด</p>
                   <p className="text-3xl font-bold text-red-500">{result.temp_max}°C</p>
-                  {tempMax !== null && (
-                    <p className="text-xs text-muted-foreground mt-1">✏️ กรอกเอง</p>
-                  )}
                 </div>
 
                 {/* Temp min */}
@@ -339,9 +188,6 @@ export default function PredictionPage() {
                   </div>
                   <p className="text-sm text-muted-foreground">อุณหภูมิต่ำสุด</p>
                   <p className="text-3xl font-bold text-blue-500">{result.temp_min}°C</p>
-                  {tempMin !== null && (
-                    <p className="text-xs text-muted-foreground mt-1">✏️ กรอกเอง</p>
-                  )}
                 </div>
 
                 {/* Rain chance */}
@@ -366,21 +212,21 @@ export default function PredictionPage() {
                 </p>
                 <div className="space-y-2">
                   {Object.entries(result.weather_probabilities)
-                    .sort((a, b) => b[1] - a[1])
+                    .sort((a,b) => b[1] - a[1])
                     .map(([w, pct]) => (
-                      <div key={w}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>{weatherIcon(w)} {weatherLabel(w)}</span>
-                          <span className="font-semibold">{pct}%</span>
-                        </div>
-                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
+                    <div key={w}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>{weatherIcon(w)} {weatherLabel(w)}</span>
+                        <span className="font-semibold">{pct}%</span>
                       </div>
-                    ))}
+                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
