@@ -223,13 +223,13 @@ export default function HomePage() {
               <Brain className="w-5 h-5" />
               ทำนายอากาศ
             </Link>
-            {/* <Link
+            <Link
               to="/dashboard"
               className="inline-flex items-center gap-2 px-6 py-3 bg-secondary text-foreground rounded-xl font-medium hover:bg-secondary/80 transition-colors"
             >
               <CloudRain className="w-5 h-5" />
               ดู Dashboard
-            </Link> */}
+            </Link>
           </div>
         </div>
       </section>
