@@ -251,8 +251,7 @@ export default function DashboardPage() {
             const years = [2012, 2013, 2014, 2015]
             // 📌 แทนด้วย stats.yearly_monthly_temp_max[year][month] เมื่อ expose API จริง
             const getTemp = (year: number, month: number) => {
-              const base = stats!.monthly_avg_temp_max[month] ?? 15
-              return +(base + (year - 2013) * 0.8 + Math.sin(month * 0.5 + year) * 1.2).toFixed(1)
+              return stats.yearly_monthly_temp_max?.[year]?.[month] ?? null
             }
             const allTemps = years.flatMap(y => MONTHS_SHORT.map((_, i) => getTemp(y, i + 1)))
             const minT = Math.min(...allTemps), maxT = Math.max(...allTemps)
@@ -436,6 +435,7 @@ export default function DashboardPage() {
             )
           })()}
         </div>
+        
         {/* Scatter แยกตามฤดูกาล */}
         <div className="glass-card rounded-3xl p-6 mb-6">
           <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
@@ -502,6 +502,345 @@ export default function DashboardPage() {
                     </span>
                   ))}
                 </div>
+              </div>
+            )
+          })()}
+        </div>
+        {/* Fourier Transform Demo */}
+        <div className="glass-card rounded-3xl p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            🧠 Mapping Data to Frequency Space
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5">
+            ตัวอย่าง Fourier Transform: Time Domain → Frequency Domain
+          </p>
+
+          {(() => {
+
+            // -------- สร้างข้อมูล --------
+            const N = 256
+            const t = Array.from({length:N}, (_,i)=> i/N)
+            const f1 = 5
+            const f2 = 12
+
+            const signal = t.map(x =>
+              Math.sin(2*Math.PI*f1*x) +
+              Math.sin(2*Math.PI*f2*x) +
+              (Math.random()-0.5)*0.5 // noise
+            )
+
+            // -------- FFT แบบง่าย (DFT Manual สำหรับ demo) --------
+            const fftMag: number[] = []
+            for(let k=0;k<N/2;k++){
+              let re=0, im=0
+              for(let n=0;n<N;n++){
+                const angle = (2*Math.PI*k*n)/N
+                re += signal[n]*Math.cos(angle)
+                im -= signal[n]*Math.sin(angle)
+              }
+              fftMag.push(Math.sqrt(re*re+im*im)/N)
+            }
+
+            // -------- scale --------
+            const W=480, H=220
+            const PAD={top:10,right:10,bottom:30,left:35}
+            const pW=W-PAD.left-PAD.right
+            const pH=H-PAD.top-PAD.bottom
+
+            const minY = Math.min(...signal)
+            const maxY = Math.max(...signal)
+            const maxF = Math.max(...fftMag)
+
+            const xTime = (i:number)=> PAD.left + (i/(N-1))*pW
+            const yTime = (v:number)=> PAD.top + pH - ((v-minY)/(maxY-minY||1))*pH
+
+            const xFreq = (i:number)=> PAD.left + (i/(fftMag.length-1))*pW
+            const yFreq = (v:number)=> PAD.top + pH - (v/(maxF||1))*pH
+
+            return (
+              <div className="overflow-x-auto space-y-8">
+
+                {/* -------- Time Domain -------- */}
+                <svg width={W} height={H} className="min-w-[380px]">
+                  <polyline
+                    fill="none"
+                    stroke="#38bdf8"
+                    strokeWidth="1.5"
+                    points={signal.map((v,i)=>`${xTime(i)},${yTime(v)}`).join(" ")}
+                  />
+                  <text x={W/2} y={H} textAnchor="middle" fontSize={10}
+                    fill="currentColor" opacity={0.6}>
+                    Time Domain
+                  </text>
+                </svg>
+
+                {/* -------- Frequency Domain -------- */}
+                <svg width={W} height={H} className="min-w-[380px]">
+                  <polyline
+                    fill="none"
+                    stroke="#f97316"
+                    strokeWidth="1.5"
+                    points={fftMag.map((v,i)=>`${xFreq(i)},${yFreq(v)}`).join(" ")}
+                  />
+                  <text x={W/2} y={H} textAnchor="middle" fontSize={10}
+                    fill="currentColor" opacity={0.6}>
+                    Frequency Domain
+                  </text>
+                </svg>
+
+              </div>
+            )
+          })()}
+        </div>
+        {/* Discretization: Binning vs Clustering */}
+        <div className="glass-card rounded-3xl p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            📊 Discretization Without Class Labels
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5">
+            เปรียบเทียบ Equal Frequency (Binning) กับ Clustering (K-means)
+          </p>
+
+          {(() => {
+
+            // -------- สร้างข้อมูลตัวอย่าง --------
+            const N = 120
+            const clusters = [
+              {mean: 5,  color: "#3b82f6"},
+              {mean: 8,  color: "#22d3ee"},
+              {mean: 10, color: "#eab308"},
+              {mean: 15, color: "#f97316"},
+            ]
+
+            const data = clusters.flatMap(c =>
+              Array.from({length:N/4}, () => ({
+                x: c.mean + (Math.random()-0.5)*1.2,
+                y: Math.random(),
+                color: c.color
+              }))
+            )
+
+            // outlier
+            data.push({x:20, y:0.5, color:"#7c2d12"})
+
+            // -------- scale --------
+            const W=480, H=220
+            const PAD={top:10,right:10,bottom:30,left:30}
+            const pW=W-PAD.left-PAD.right
+            const pH=H-PAD.top-PAD.bottom
+
+            const minX = 0
+            const maxX = 22
+
+            const xS=(v:number)=>PAD.left+((v-minX)/(maxX-minX))*pW
+            const yS=(v:number)=>PAD.top+pH-(v*pH)
+
+            // -------- Binning (Equal width) --------
+            const bins = [7, 11, 14] // เส้นแบ่ง
+
+            // -------- Clustering centers (mock K-means result) --------
+            const kCenters = [5,8,10,15]
+
+            return (
+              <div className="grid md:grid-cols-2 gap-8">
+
+                {/* -------- Equal Frequency Binning -------- */}
+                <div>
+                  <svg width={W} height={H} className="min-w-[380px]">
+                    
+                    {/* เส้นแบ่ง bin */}
+                    {bins.map((b,i)=>(
+                      <line key={i}
+                        x1={xS(b)} x2={xS(b)}
+                        y1={PAD.top} y2={PAD.top+pH}
+                        stroke="currentColor"
+                        strokeDasharray="4 3"
+                        opacity={0.4}
+                      />
+                    ))}
+
+                    {/* จุดข้อมูล */}
+                    {data.map((d,i)=>(
+                      <circle key={i}
+                        cx={xS(d.x)}
+                        cy={yS(d.y)}
+                        r={4}
+                        fill={d.color}
+                        fillOpacity={0.8}
+                      />
+                    ))}
+
+                    <text x={W/2} y={H} textAnchor="middle"
+                      fontSize={10} fill="currentColor" opacity={0.6}>
+                      Equal Width Binning
+                    </text>
+                  </svg>
+                </div>
+
+                {/* -------- Clustering -------- */}
+                <div>
+                  <svg width={W} height={H} className="min-w-[380px]">
+
+                    {/* center lines */}
+                    {kCenters.map((c,i)=>(
+                      <line key={i}
+                        x1={xS(c)} x2={xS(c)}
+                        y1={PAD.top} y2={PAD.top+pH}
+                        stroke="black"
+                        strokeWidth="1.5"
+                        opacity={0.5}
+                      />
+                    ))}
+
+                    {/* จุดข้อมูล */}
+                    {data.map((d,i)=>(
+                      <circle key={i}
+                        cx={xS(d.x)}
+                        cy={yS(d.y)}
+                        r={4}
+                        fill={d.color}
+                        fillOpacity={0.8}
+                      />
+                    ))}
+
+                    <text x={W/2} y={H} textAnchor="middle"
+                      fontSize={10} fill="currentColor" opacity={0.6}>
+                      K-means Clustering
+                    </text>
+                  </svg>
+                </div>
+
+              </div>
+            )
+          })()}
+        </div>
+        {/* Discretization: Binning vs Clustering (Real Weather Data) */}
+        <div className="glass-card rounded-3xl p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            📊 Discretization Without Class Labels
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5">
+            เปรียบเทียบ Equal Width Binning กับ K-means (ใช้ temp_max จริง)
+          </p>
+
+          {(() => {
+
+            // ====== ใส่ temp_max จาก CSV ของคุณ ======
+            const rawTemp = [
+              15,11.7,19.4,30,3.3,29.4,16.1,20,22.2,25.6,
+              33.3,21.1,26.1,30.6,12.8,27.8,5.6,0,6.7,7.2,
+              9.4,14.4,18.3,23.3
+            ]
+
+            // ====== ลบ duplicate ======
+            const tempData = Array.from(new Set(rawTemp))
+
+            // ====== scale ======
+            const W=480, H=220
+            const PAD={top:10,right:10,bottom:30,left:30}
+            const pW=W-PAD.left-PAD.right
+            const pH=H-PAD.top-PAD.bottom
+
+            const minX = Math.min(...tempData)
+            const maxX = Math.max(...tempData)
+
+            const xS=(v:number)=>PAD.left+((v-minX)/(maxX-minX))*pW
+            const yS=(v:number)=>PAD.top+pH-(Math.random()*pH)
+
+            // ====== Equal Width Binning ======
+            const k = 4
+            const width = (maxX-minX)/k
+            const bins = Array.from({length:k-1},(_,i)=>minX+width*(i+1))
+
+            // ====== K-means จริง ======
+            function kmeans1D(data:number[], k:number, iter=15){
+              let centroids = data.slice(0,k)
+
+              for(let t=0;t<iter;t++){
+                const clusters:number[][] = Array.from({length:k},()=>[])
+
+                data.forEach(d=>{
+                  const distances = centroids.map(c=>Math.abs(d-c))
+                  const idx = distances.indexOf(Math.min(...distances))
+                  clusters[idx].push(d)
+                })
+
+                centroids = clusters.map(c=>{
+                  if(c.length===0) return 0
+                  return c.reduce((a,b)=>a+b,0)/c.length
+                })
+              }
+
+              return centroids
+            }
+
+            const kCenters = kmeans1D(tempData,k)
+
+            return (
+              <div className="grid md:grid-cols-2 gap-8">
+
+                {/* -------- Equal Width Binning -------- */}
+                <div>
+                  <svg width={W} height={H} className="min-w-[380px]">
+                    
+                    {bins.map((b,i)=>(
+                      <line key={i}
+                        x1={xS(b)} x2={xS(b)}
+                        y1={PAD.top} y2={PAD.top+pH}
+                        stroke="currentColor"
+                        strokeDasharray="4 3"
+                        opacity={0.4}
+                      />
+                    ))}
+
+                    {tempData.map((d,i)=>(
+                      <circle key={i}
+                        cx={xS(d)}
+                        cy={yS(d)}
+                        r={4}
+                        fill="#3b82f6"
+                        fillOpacity={0.8}
+                      />
+                    ))}
+
+                    <text x={W/2} y={H} textAnchor="middle"
+                      fontSize={10} fill="currentColor" opacity={0.6}>
+                      Equal Width Binning
+                    </text>
+                  </svg>
+                </div>
+
+                {/* -------- K-means -------- */}
+                <div>
+                  <svg width={W} height={H} className="min-w-[380px]">
+
+                    {kCenters.map((c,i)=>(
+                      <line key={i}
+                        x1={xS(c)} x2={xS(c)}
+                        y1={PAD.top} y2={PAD.top+pH}
+                        stroke="black"
+                        strokeWidth="1.5"
+                        opacity={0.5}
+                      />
+                    ))}
+
+                    {tempData.map((d,i)=>(
+                      <circle key={i}
+                        cx={xS(d)}
+                        cy={yS(d)}
+                        r={4}
+                        fill="#f97316"
+                        fillOpacity={0.8}
+                      />
+                    ))}
+
+                    <text x={W/2} y={H} textAnchor="middle"
+                      fontSize={10} fill="currentColor" opacity={0.6}>
+                      K-means Clustering
+                    </text>
+                  </svg>
+                </div>
+
               </div>
             )
           })()}

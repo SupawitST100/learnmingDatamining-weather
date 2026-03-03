@@ -138,7 +138,6 @@ def load_and_train():
     recent = df.tail(30)[["date_str","temp_max","temp_min","precipitation","weather"]].copy()
     dataset_stats["recent_30"] = recent.to_dict(orient="records")
 
-
 load_and_train()
 
 
@@ -256,3 +255,4 @@ def predict_range(start_month: int = 1, days: int = 7):
 @app.get("/stats")
 def stats():
     return dataset_stats
+
